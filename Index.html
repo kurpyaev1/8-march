@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Весенний улов — игра к 8 Марта</title>
+<style>
+  :root{
+    --bg1:#fff1f7;
+    --bg2:#ffe0ec;
+    --bg3:#ffd2b8;
+    --text:#5b3150;
+    --accent:#ff4f93;
+    --accent-2:#ff9f43;
+    --good:#28c76f;
+    --bad:#7f8c8d;
+    --card:rgba(255,255,255,.78);
+    --shadow:0 20px 45px rgba(160, 64, 108, .18);
+  }
+
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    height:100%;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,.8), transparent 28%),
+      radial-gradient(circle at 80% 15%, rgba(255,255,255,.7), transparent 24%),
+      linear-gradient(160deg, var(--bg1), var(--bg2) 52%, var(--bg3));
+    overflow:hidden;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:none;
+  }
+
+  .petal{
+    position:fixed;
+    top:-10vh;
+    font-size:18px;
+    opacity:.18;
+    animation: drift linear forwards;
+    pointer-events:none;
+    filter: blur(.2px);
+  }
+
+  @keyframes drift{
+    from{
+      transform: translate3d(0, -10vh, 0) rotate(0deg);
+    }
+    to{
+      transform: translate3d(var(--dx), 115vh, 0) rotate(480deg);
+    }
+  }
+
+  .ui{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+  }
+
+  .topbar{
+    position:absolute;
+    left:50%;
+    transform:translateX(-50%);
+    top:14px;
+    width:min(960px, calc(100% - 20px));
+    display:flex;
+    gap:12px;
+    align-items:center;
+    justify-content:space-between;
+    z-index:6;
+  }
+
+  .panel{
+    background:var(--card);
+    backdrop-filter: blur(10px);
+    border:1px solid rgba(255,255,255,.5);
+    border-radius:22px;
+    box-shadow:var(--shadow);
+    padding:12px 16px;
+    pointer-events:auto;
+  }
+
+  .stats{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:center;
+  }
+
+  .chip{
+    background:rgba(255,255,255,.65);
+    border-radius:999px;
+    padding:10px 14px;
+    font-weight:700;
+    font-size:15px;
+    white-space:nowrap;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.4);
+  }
+
+  .chip b{
+    color:var(--accent);
+    font-size:18px;
+  }
+
+  .hint{
+    font-size:14px;
+    opacity:.84;
+  }
+
+  #game{
+    position:fixed;
+    inset:0;
+    overflow:hidden;
+  }
+
+  .groundGlow{
+    position:absolute;
+    left:0; right:0; bottom:-6vh;
+    height:28vh;
+    background:radial-gradient(ellipse at center, rgba(255,255,255,.55), transparent 70%);
+    pointer-events:none;
+  }
+
+  .player{
+    position:absolute;
+    bottom:24px;
+    left:50%;
+    width:92px;
+    height:92px;
+    transform:translateX(-50%);
+    display:grid;
+    place-items:center;
+    font-size:56px;
+    z-index:4;
+    transition: transform .06s linear;
+    will-change:left, transform;
+    filter: drop-shadow(0 10px 14px rgba(145, 58, 96, .18));
+  }
+
+  .player .halo{
+    position:absolute;
+    inset:10px;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(255,255,255,.9), rgba(255,255,255,.2) 65%, transparent 72%);
+    z-index:-1;
+  }
+
+  .falling{
+    position:absolute;
+    top:-70px;
+    width:58px;
+    height:58px;
+    display:grid;
+    place-items:center;
+    font-size:40px;
+    z-index:3;
+    will-change:transform, top, left;
+    filter: drop-shadow(0 8px 8px rgba(145,58,96,.16));
+  }
+
+  .falling.bad{
+    filter: grayscale(.1) drop-shadow(0 8px 8px rgba(82,86,94,.14));
+  }
+
+  .scorePop{
+    position:absolute;
+    font-weight:900;
+    font-size:28px;
+    color:var(--accent);
+    animation:pop .7s ease forwards;
+    pointer-events:none;
+    z-index:10;
+    text-shadow:0 4px 18px rgba(255,255,255,.8);
+  }
+
+  .scorePop.good{ color:var(--good); }
+  .scorePop.bad{ color:#ff5a5f; }
+
+  @keyframes pop{
+    0%{ transform:translateY(0) scale(.85); opacity:0; }
+    12%{ opacity:1; }
+    100%{ transform:translateY(-55px) scale(1.1); opacity:0; }
+  }
+
+  .screen{
+    position:fixed;
+    inset:0;
+    display:grid;
+    place-items:center;
+    padding:18px;
+    z-index:9;
+    background:linear-gradient(180deg, rgba(255,242,247,.55), rgba(255,229,239,.78));
+    backdrop-filter: blur(10px);
+  }
+
+  .card{
+    width:min(760px, 100%);
+    padding:26px;
+    border-radius:28px;
+    background:rgba(255,255,255,.82);
+    border:1px solid rgba(255,255,255,.72);
+    box-shadow: var(--shadow);
+    text-align:center;
+  }
+
+  h1{
+    margin:0 0 10px;
+    font-size:clamp(32px, 4vw, 56px);
+    line-height:1;
+    color:#c13371;
+  }
+
+  .subtitle{
+    font-size:clamp(17px, 2.2vw, 24px);
+    margin:0 auto 18px;
+    max-width:640px;
+  }
+
+  .mini{
+    opacity:.82;
+    font-size:15px;
+    line-height:1.55;
+  }
+
+  .rules{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+    gap:12px;
+    margin:18px 0 22px;
+    text-align:left;
+  }
+
+  .rule{
+    background:rgba(255,255,255,.72);
+    border:1px solid rgba(255,255,255,.8);
+    border-radius:18px;
+    padding:14px 16px;
+  }
+
+  .rule b{
+    display:block;
+    margin-bottom:6px;
+    color:#b7356d;
+  }
+
+  .buttons{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    justify-content:center;
+    margin-top:10px;
+  }
+
+  button{
+    appearance:none;
+    border:none;
+    cursor:pointer;
+    border-radius:999px;
+    padding:14px 22px;
+    font-size:16px;
+    font-weight:800;
+    color:white;
+    background:linear-gradient(135deg, var(--accent), #ff7397);
+    box-shadow:0 12px 24px rgba(255, 79, 147, .28);
+    transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+  }
+  button:hover{ transform:translateY(-1px); box-shadow:0 14px 28px rgba(255, 79, 147, .32); }
+  button.secondary{
+    color:#b7356d;
+    background:rgba(255,255,255,.9);
+    box-shadow:inset 0 0 0 1px rgba(191,53,109,.18);
+  }
+
+  .hidden{ display:none !important; }
+
+  .barWrap{
+    min-width:min(280px, 50vw);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+
+  .barLabel{
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+    opacity:.82;
+    font-weight:700;
+  }
+
+  .bar{
+    height:14px;
+    background:rgba(255,255,255,.7);
+    border-radius:999px;
+    overflow:hidden;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.6);
+  }
+
+  .barFill{
+    height:100%;
+    width:0%;
+    border-radius:999px;
+    background:linear-gradient(90deg, #ff7eb3, #ffbf69);
+    transition:width .18s ease;
+  }
+
+  .footerNote{
+    margin-top:16px;
+    font-size:14px;
+    opacity:.72;
+  }
+
+  .confetti{
+    position:absolute;
+    width:12px;
+    height:18px;
+    border-radius:4px;
+    opacity:.9;
+    animation: confettiFall linear forwards;
+    pointer-events:none;
+    z-index:11;
+  }
+
+  @keyframes confettiFall{
+    from{
+      transform:translate3d(0,-15vh,0) rotate(0deg);
+      opacity:1;
+    }
+    to{
+      transform:translate3d(var(--dx),115vh,0) rotate(620deg);
+      opacity:0.1;
+    }
+  }
+
+  .resultScore{
+    font-size:clamp(36px, 7vw, 68px);
+    font-weight:900;
+    color:#cf2f73;
+    margin:4px 0 12px;
+  }
+
+  .badgeRow{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:10px;
+    margin:14px 0 8px;
+  }
+
+  .badge{
+    padding:9px 13px;
+    border-radius:999px;
+    background:rgba(255,255,255,.88);
+    font-weight:800;
+  }
+
+  @media (max-width: 720px){
+    .topbar{
+      width:calc(100% - 12px);
+      top:8px;
+      gap:8px;
+      flex-direction:column;
+      align-items:stretch;
+    }
+    .panel{
+      padding:10px 12px;
+      border-radius:18px;
+    }
+    .stats{
+      justify-content:center;
+    }
+    .hint{
+      text-align:center;
+    }
+    .player{
+      width:84px;
+      height:84px;
+      font-size:50px;
+      bottom:16px;
+    }
+  }
+</style>
+</head>
+<body>
+  <div id="game">
+    <div class="groundGlow"></div>
+    <div id="player" class="player" aria-hidden="true">
+      <div class="halo"></div>
+      🧺
+    </div>
+  </div>
+
+  <div class="ui">
+    <div class="topbar">
+      <div class="panel stats">
+        <div class="chip">Очки: <b id="score">0</b></div>
+        <div class="chip">Комбо: <b id="combo">x1</b></div>
+        <div class="chip">Жизни: <b id="lives">❤❤❤</b></div>
+        <div class="chip">Время: <b id="time">45</b></div>
+      </div>
+      <div class="panel barWrap">
+        <div class="barLabel">
+          <span>До супер-поздравления</span>
+          <span id="goalText">0 / 140</span>
+        </div>
+        <div class="bar"><div id="goalFill" class="barFill"></div></div>
+        <div class="hint">Мышка, палец или стрелки ← →. Лови весенние символы и не попадай под тучки.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="startScreen" class="screen">
+    <div class="card">
+      <h1>С 8 Марта! 🌷</h1>
+      <p class="subtitle">Мини-игра-поздравление: собери как можно больше цветов, сердечек и подарков для праздничного настроения.</p>
+      <div class="rules">
+        <div class="rule"><b>Лови хорошее</b> 🌷 💖 🎁 ⭐ дают очки, комбо и бонусы.</div>
+        <div class="rule"><b>Избегай грусти</b> ☁️ сбивает комбо и отнимает жизнь.</div>
+        <div class="rule"><b>Набери 140 очков</b> и откроется особое поздравление.</div>
+      </div>
+      <p class="mini">Игра короткая, простая и отлично подходит как милое интерактивное поздравление. Можно открыть на телефоне или компьютере.</p>
+      <div class="buttons">
+        <button id="startBtn">Начать праздник</button>
+      </div>
+      <div class="footerNote">Подсказка: чем длиннее серия без ошибок, тем выше множитель.</div>
+    </div>
+  </div>
+
+  <div id="endScreen" class="screen hidden">
+    <div class="card">
+      <h1 id="endTitle">Праздник удался! ✨</h1>
+      <div class="resultScore" id="finalScore">0</div>
+      <p class="subtitle" id="endMessage"></p>
+      <div class="badgeRow">
+        <div class="badge">Лучшее комбо: <span id="bestCombo">x1</span></div>
+        <div class="badge">Собрано: <span id="caughtCount">0</span></div>
+        <div class="badge">Промахов от тучек: <span id="badCount">0</span></div>
+      </div>
+      <div class="buttons">
+        <button id="restartBtn">Сыграть ещё</button>
+      </div>
+      <div class="footerNote">Пусть весна приносит радость, лёгкость, вдохновение и побольше приятных сюрпризов 💐</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const game = document.getElementById('game');
+  const player = document.getElementById('player');
+  const scoreEl = document.getElementById('score');
+  const comboEl = document.getElementById('combo');
+  const livesEl = document.getElementById('lives');
+  const timeEl = document.getElementById('time');
+  const goalText = document.getElementById('goalText');
+  const goalFill = document.getElementById('goalFill');
+
+  const startScreen = document.getElementById('startScreen');
+  const endScreen = document.getElementById('endScreen');
+  const finalScoreEl = document.getElementById('finalScore');
+  const endTitle = document.getElementById('endTitle');
+  const endMessage = document.getElementById('endMessage');
+  const bestComboEl = document.getElementById('bestCombo');
+  const caughtCountEl = document.getElementById('caughtCount');
+  const badCountEl = document.getElementById('badCount');
+
+  const startBtn = document.getElementById('startBtn');
+  const restartBtn = document.getElementById('restartBtn');
+
+  const GOOD_ITEMS = [
+    { emoji:'🌷', points:10, weight:28, className:'good' },
+    { emoji:'🌸', points:9,  weight:22, className:'good' },
+    { emoji:'💖', points:12, weight:18, className:'good' },
+    { emoji:'🎁', points:16, weight:10, className:'good' },
+    { emoji:'⭐', points:20, weight:6,  className:'good' },
+    { emoji:'👑', points:28, weight:3,  className:'good' }
+  ];
+  const BAD_ITEMS = [
+    { emoji:'☁️', points:-1, weight:10, className:'bad' },
+    { emoji:'🌧️', points:-1, weight:6, className:'bad' }
+  ];
+  const GOAL = 140;
+  const ROUND_TIME = 45;
+  const PLAYER_WIDTH = 92;
+
+  let state = {};
+  let rafId = null;
+  let spawnTimer = 0;
+  let lastTime = 0;
+  let petalsTimer = 0;
+
+  function resetState(){
+    state = {
+      running:false,
+      score:0,
+      combo:0,
+      bestCombo:0,
+      lives:3,
+      timeLeft:ROUND_TIME,
+      caught:0,
+      badCaught:0,
+      items:[],
+      playerX:window.innerWidth/2,
+      keys:{left:false,right:false},
+      lastSpawnGap:0.55
+    };
+    scoreEl.textContent = '0';
+    comboEl.textContent = 'x1';
+    livesEl.textContent = '❤❤❤';
+    timeEl.textContent = String(ROUND_TIME);
+    goalText.textContent = `0 / ${GOAL}`;
+    goalFill.style.width = '0%';
+    player.style.left = `${state.playerX}px`;
+    clearItems();
+  }
+
+  function clearItems(){
+    state.items?.forEach(item => item.el.remove());
+    state.items = [];
+    document.querySelectorAll('.scorePop, .confetti, .petal').forEach(el => el.remove());
+  }
+
+  function weightedPick(list){
+    const total = list.reduce((s, i) => s + i.weight, 0);
+    let roll = Math.random() * total;
+    for(const item of list){
+      roll -= item.weight;
+      if(roll <= 0) return item;
+    }
+    return list[list.length - 1];
+  }
+
+  function spawnItem(){
+    const makeBad = Math.random() < 0.18;
+    const base = makeBad ? weightedPick(BAD_ITEMS) : weightedPick(GOOD_ITEMS);
+    const el = document.createElement('div');
+    el.className = `falling ${base.className}`;
+    el.textContent = base.emoji;
+    const x = 30 + Math.random() * (window.innerWidth - 60);
+    const speed = (makeBad ? 220 : 180) + Math.random() * 180 + Math.min(110, (ROUND_TIME - state.timeLeft) * 2.2);
+    const wobble = (Math.random() * 2 - 1) * 45;
+    const item = {
+      ...base,
+      x,
+      y:-70,
+      speed,
+      wobble,
+      driftSeed:Math.random()*1000,
+      size: makeBad ? 52 : 58,
+      el
+    };
+    el.style.left = `${x}px`;
+    game.appendChild(el);
+    state.items.push(item);
+  }
+
+  function createPop(text, x, y, cls='good'){
+    const pop = document.createElement('div');
+    pop.className = `scorePop ${cls}`;
+    pop.textContent = text;
+    pop.style.left = `${x}px`;
+    pop.style.top = `${y}px`;
+    game.appendChild(pop);
+    setTimeout(() => pop.remove(), 740);
+  }
+
+  function createConfetti(count = 36){
+    for(let i=0;i<count;i++){
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = `${Math.random()*100}vw`;
+      c.style.top = '-10vh';
+      c.style.background = `hsl(${Math.floor(Math.random()*360)} 100% 75%)`;
+      c.style.setProperty('--dx', `${(Math.random()*50-25)}vw`);
+      c.style.animationDuration = `${2.2 + Math.random()*1.8}s`;
+      game.appendChild(c);
+      setTimeout(() => c.remove(), 4300);
+    }
+  }
+
+  function createPetal(){
+    const p = document.createElement('div');
+    p.className = 'petal';
+    p.textContent = Math.random() < 0.5 ? '🌸' : '✨';
+    p.style.left = `${Math.random()*100}vw`;
+    p.style.setProperty('--dx', `${(Math.random()*26-13)}vw`);
+    p.style.animationDuration = `${7 + Math.random()*8}s`;
+    p.style.fontSize = `${14 + Math.random()*20}px`;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 16000);
+  }
+
+  function updateHUD(){
+    scoreEl.textContent = String(state.score);
+    comboEl.textContent = `x${Math.max(1, 1 + Math.floor(state.combo / 4))}`;
+    livesEl.textContent = '❤'.repeat(state.lives) + '🖤'.repeat(3 - state.lives);
+    timeEl.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
+    goalText.textContent = `${state.score} / ${GOAL}`;
+    goalFill.style.width = `${Math.min(100, (state.score / GOAL) * 100)}%`;
+  }
+
+  function catchItem(item){
+    if(item.className === 'bad'){
+      state.lives -= 1;
+      state.badCaught += 1;
+      state.combo = 0;
+      createPop('− жизнь', item.x, item.y, 'bad');
+      player.style.transform = 'translateX(-50%) scale(0.92)';
+      setTimeout(() => player.style.transform = 'translateX(-50%) scale(1)', 120);
+      if(state.lives <= 0){
+        updateHUD();
+        endGame();
+        return;
+      }
+    }else{
+      state.caught += 1;
+      state.combo += 1;
+      state.bestCombo = Math.max(state.bestCombo, state.combo);
+      const mult = 1 + Math.floor(state.combo / 4);
+      const points = item.points * mult;
+      state.score += points;
+      createPop(`+${points}`, item.x, item.y, 'good');
+      if(state.combo > 0 && state.combo % 7 === 0){
+        state.score += 10;
+        createPop('Бонус +10', item.x + 14, item.y - 8, 'good');
+      }
+      if(item.emoji === '👑' || item.emoji === '⭐'){
+        createConfetti(14);
+      }
+    }
+    updateHUD();
+  }
+
+  function missItem(item){
+    if(item.className !== 'bad'){
+      state.combo = 0;
+      updateHUD();
+    }
+  }
+
+  function checkCollision(item){
+    const playerY = window.innerHeight - 24 - 46;
+    const dx = Math.abs(item.x - state.playerX);
+    const dy = Math.abs((item.y + 22) - playerY);
+    return dx < 46 && dy < 42;
+  }
+
+  function removeItem(item, missed=false){
+    item.el.remove();
+    const idx = state.items.indexOf(item);
+    if(idx >= 0) state.items.splice(idx,1);
+    if(missed) missItem(item);
+  }
+
+  function tick(ts){
+    if(!state.running) return;
+    if(!lastTime) lastTime = ts;
+    const dt = Math.min(0.033, (ts - lastTime) / 1000);
+    lastTime = ts;
+
+    state.timeLeft -= dt;
+    if(state.timeLeft <= 0){
+      state.timeLeft = 0;
+      updateHUD();
+      endGame();
+      return;
+    }
+
+    const moveSpeed = Math.max(320, window.innerWidth * 0.75);
+    if(state.keys.left) state.playerX -= moveSpeed * dt;
+    if(state.keys.right) state.playerX += moveSpeed * dt;
+    state.playerX = Math.max(42, Math.min(window.innerWidth - 42, state.playerX));
+    player.style.left = `${state.playerX}px`;
+
+    spawnTimer += dt;
+    petalsTimer += dt;
+
+    const dynamicGap = Math.max(0.18, 0.65 - ((ROUND_TIME - state.timeLeft) / ROUND_TIME) * 0.32);
+    if(spawnTimer >= dynamicGap){
+      spawnTimer = 0;
+      spawnItem();
+      if(Math.random() < 0.26) spawnItem();
+    }
+
+    if(petalsTimer > 0.7){
+      petalsTimer = 0;
+      if(Math.random() < 0.9) createPetal();
+    }
+
+    for(const item of [...state.items]){
+      item.y += item.speed * dt;
+      item.x += Math.sin((ts / 400) + item.driftSeed) * dt * item.wobble;
+      item.x = Math.max(26, Math.min(window.innerWidth - 26, item.x));
+      item.el.style.left = `${item.x}px`;
+      item.el.style.top = `${item.y}px`;
+
+      if(checkCollision(item)){
+        catchItem(item);
+        removeItem(item);
+        continue;
+      }
+      if(item.y > window.innerHeight + 80){
+        removeItem(item, true);
+      }
+    }
+
+    updateHUD();
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function endGame(){
+    state.running = false;
+    cancelAnimationFrame(rafId);
+
+    finalScoreEl.textContent = state.score;
+    bestComboEl.textContent = `x${Math.max(1, 1 + Math.floor(state.bestCombo / 4))}`;
+    caughtCountEl.textContent = state.caught;
+    badCountEl.textContent = state.badCaught;
+
+    if(state.score >= GOAL){
+      endTitle.textContent = 'Ты собрала целую весну! 🌷✨';
+      endMessage.textContent = 'С 8 Марта! Пусть каждый день приносит радость, вдохновение, тёплые слова, красивые моменты и людей, рядом с которыми хочется улыбаться. Ты — украшение этого мира!';
+      createConfetti(72);
+    }else if(state.score >= 90){
+      endTitle.textContent = 'Очень красивый результат 💖';
+      endMessage.textContent = 'С 8 Марта! Пусть весна будет лёгкой, счастливой и наполненной приятными сюрпризами, заботой, любовью и хорошим настроением.';
+      createConfetti(42);
+    }else{
+      endTitle.textContent = 'Весна уже рядом 🌸';
+      endMessage.textContent = 'С 8 Марта! Пусть впереди будет больше поводов для улыбок, отдыха, тепла, цветов и исполнения самых приятных желаний.';
+      createConfetti(22);
+    }
+
+    endScreen.classList.remove('hidden');
+  }
+
+  function startGame(){
+    resetState();
+    startScreen.classList.add('hidden');
+    endScreen.classList.add('hidden');
+    state.running = true;
+    lastTime = 0;
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function setPlayerFromClientX(clientX){
+    state.playerX = Math.max(42, Math.min(window.innerWidth - 42, clientX));
+    player.style.left = `${state.playerX}px`;
+  }
+
+  document.addEventListener('pointermove', (e) => {
+    if(!state.running) return;
+    setPlayerFromClientX(e.clientX);
+  }, { passive:true });
+
+  document.addEventListener('pointerdown', (e) => {
+    if(state.running) setPlayerFromClientX(e.clientX);
+  }, { passive:true });
+
+  document.addEventListener('touchmove', (e) => {
+    if(!state.running || !e.touches[0]) return;
+    setPlayerFromClientX(e.touches[0].clientX);
+  }, { passive:true });
+
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') state.keys.left = true;
+    if(e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') state.keys.right = true;
+    if((e.key === ' ' || e.key === 'Enter') && !state.running){
+      if(!startScreen.classList.contains('hidden')) startGame();
+      else if(!endScreen.classList.contains('hidden')) startGame();
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    if(e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') state.keys.left = false;
+    if(e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') state.keys.right = false;
+  });
+
+  window.addEventListener('resize', () => {
+    state.playerX = Math.min(window.innerWidth - 42, state.playerX || window.innerWidth/2);
+    player.style.left = `${state.playerX}px`;
+  });
+
+  startBtn.addEventListener('click', startGame);
+  restartBtn.addEventListener('click', startGame);
+
+  resetState();
+  for(let i=0; i<10; i++){
+    setTimeout(createPetal, i * 230);
+  }
+})();
+</script>
+</body>
+</html>
